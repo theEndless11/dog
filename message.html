@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Chat</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f4f7fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 480px; /* Adjusted for mobile-friendly view */
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Chat Header */
+        .chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .chat-header span {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .chat-header i {
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Chatbox container */
+        .chat-box {
+            max-height: 400px;
+            overflow-y: scroll;
+            background-color: #f9f9f9;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .sent {
+            justify-content: flex-end;
+        }
+
+        .received {
+            justify-content: flex-start;
+        }
+
+        .message .content {
+            padding: 12px;
+            border-radius: 12px;
+            background-color: #4CAF50;
+            color: white;
+            max-width: 70%;
+        }
+
+        .received .content {
+            background-color: #F1F1F1;
+            color: #333;
+        }
+
+        .message span {
+            font-size: 12px;
+            color: #B0BEC5;
+            margin-left: 10px;
+        }
+
+        input[type="text"] {
+            width: 75%;
+            padding: 12px;
+            font-size: 14px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background-color: #f1f1f1;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Responsiveness */
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 100%;
+                max-width: 100%;
+                height: 100%;
+                margin: 0;
+            }
+
+            .chat-header span {
+                font-size: 12px;
+            }
+
+            .chat-header i {
+                font-size: 18px;
+            }
+
+            input[type="text"] {
+                width: 65%;
+            }
+
+            button {
+                padding: 10px 15px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <!-- Chat Header -->
+    <div class="chat-header">
+        <span>Chat with <span id="chat-with"></span></span>
+        <div>
+            <!-- Using FontAwesome Icons -->
+            <i class="fas fa-user-plus" title="Add Friend" onclick="sendFriendRequest()"></i>
+            <i class="fas fa-cogs" title="Settings" onclick="openSettings()"></i>
+        </div>
+    </div>
+
+    <!-- Chat Box -->
+    <div id="private-chat-box" class="chat-box"></div>
+
+    <!-- Message Input -->
+    <div style="display: flex; padding: 10px;">
+        <input type="text" id="private-message" placeholder="Type a message...">
+        <button onclick="sendPrivateMessage()">Send</button>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" style="display:none;">
+    <div style="background-color: rgba(0, 0, 0, 0.7); height: 100%; display: flex; justify-content: center; align-items: center;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; width: 300px;">
+            <h3>Settings</h3>
+            <button onclick="closeSettings()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ably = new Ably.Realtime('knH84g.xyERFQ:_YgFb-hkCXQNM2gCyRhIt2Q0NWuKd2JmfNhLZILR7DE');
+    let channel = ably.channels.get('private-chat');
+    let username = localStorage.getItem('username');
+    let otherUser = new URLSearchParams(window.location.search).get('user');
+    let privateChatBox = document.getElementById('private-chat-box');
+    let privateMessageInput = document.getElementById('private-message');
+    let chatWithElement = document.getElementById('chat-with');
+
+    chatWithElement.textContent = otherUser;
+
+    async function sendPrivateMessage() {
+        let message = privateMessageInput.value.trim();
+        if (message) {
+            let time = new Date().toLocaleTimeString();
+            let newMessage = { user: username, text: message, time: time, to: otherUser };
+            channel.publish('private-message', newMessage);
+            displayPrivateMessage(newMessage);
+            privateMessageInput.value = '';
+        }
+    }
+
+    function displayPrivateMessage(msg) {
+        let msgElement = document.createElement('div');
+        msgElement.classList.add('message');
+        msgElement.classList.add(msg.user === username ? 'sent' : 'received');
+        msgElement.innerHTML = `<div class="content"><strong>${msg.user}</strong>: ${msg.text} <span>${msg.time}</span></div>`;
+        privateChatBox.appendChild(msgElement);
+        privateChatBox.scrollTop = privateChatBox.scrollHeight;
+    }
+
+    channel.subscribe('private-message', (msg) => {
+        if (msg.data.to === username || msg.data.user === username) {
+            displayPrivateMessage(msg.data);
+        }
+    });
+
+    function sendFriendRequest() {
+        alert(`Friend request sent to ${otherUser}!`);
+        // Implement actual friend request functionality
+    }
+
+    function openSettings() {
+        document.getElementById('settings-modal').style.display = 'block';
+    }
+
+    function closeSettings() {
+        document.getElementById('settings-modal').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
+
+

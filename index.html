@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat with Ably and Database</title>
+  <script src="https://cdn.ably.io/lib/ably.js"></script>
+</head>
+<body>
+  <h1>Test Ably Chat with Database</h1>
+  <input type="text" id="username" placeholder="Enter your username" />
+  <textarea id="message" placeholder="Enter your message"></textarea>
+  <button id="send">Send</button>
+  <div id="messages"></div>
+
+  <script>
+    const apiKey = 'A0U0PQ.abMsKQ:nwShEI-ufoCxGcngQDCdzBuYI51d6z6CcNhYR61Obxg';
+    const channelName = 'chat-channel'; // Use any channel name you'd like
+    const usernameInput = document.getElementById('username');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+    const messagesDiv = document.getElementById('messages');
+
+    // Initialize Ably
+    const ably = new Ably.Realtime({ key: apiKey });
+    const channel = ably.channels.get(channelName);
+
+    // Function to display messages
+    function displayMessage(message) {
+      const messageDiv = document.createElement('div');
+      messageDiv.textContent = `${message.data.username}: ${message.data.text}`;
+      messagesDiv.appendChild(messageDiv);
+    }
+
+    // Function to send message to Ably and save to database
+    async function sendMessage() {
+      const username = usernameInput.value.trim();
+      const text = messageInput.value.trim();
+
+      if (username && text) {
+        // Publish the message to Ably
+        channel.publish('chat', { username, text });
+
+        // Save the message to the database
+        try {
+          await fetch('http://localhost:3000/save-message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, text }),
+          });
+        } catch (error) {
+          console.error('Error saving message:', error);
+        }
+
+        // Clear the input fields after sending the message
+        messageInput.value = '';
+      }
+    }
+
+    // Listen for messages on the channel
+    channel.subscribe((message) => {
+      displayMessage(message);
+    });
+
+    // Send a message when the button is clicked
+    sendButton.addEventListener('click', sendMessage);
+
+    // Fetch and display previous messages on load
+    async function fetchMessages() {
+      try {
+        const response = await fetch('http://localhost:3000/get-messages');
+        const messages = await response.json();
+        messages.forEach((msg) => displayMessage({ data: msg }));
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    }
+
+    // Load existing messages from the database when the page loads
+    fetchMessages();
+  </script>
+</body>
+</html>
+
+
+
